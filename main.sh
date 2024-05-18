@@ -14,13 +14,24 @@
 # --eval-log-interval EVAL_LOG_INTERVAL
 # --consolidate
 
-for epochs_per_task in 1 3 10
+cuda_device=-1
+
+for epochs_per_task in 300 100 30 10
 do
-    for lamda in 1 3 10 30 100
+    for lamda in 1 3 5 10 30 50 100
     do
         for opt_name in "sgd" "adam"
         do
-            python main.py --epochs-per-task $epochs_per_task --lamda $lamda --opt-name $opt_name --consolidate
+            for lr in 1e-3 1e-4 1e-5
+            do
+                if [[ cuda_device -eq 7 ]]
+                then
+                    cuda_device=0
+                else
+                    cuda_device=$((cuda_device + 1))
+                fi
+                echo CUDA_VISIBLE_DEVICES=$cuda_device python main.py --epochs-per-task $epochs_per_task --lamda $lamda --opt-name $opt_name --lr $lr --consolidate
+            done
         done
     done
 done
