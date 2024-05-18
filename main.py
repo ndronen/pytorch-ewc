@@ -88,6 +88,7 @@ if __name__ == '__main__':
         test_size=args.test_size,
         consolidate=args.consolidate,
         fisher_estimation_sample_size=args.fisher_estimation_sample_size,
+        opt_name=args.opt_name,
         lr=args.lr,
         weight_decay=args.weight_decay,
         eval_log_interval=args.eval_log_interval,
