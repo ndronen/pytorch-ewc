@@ -27,6 +27,8 @@ def train(model, train_datasets, test_datasets, epochs_per_task=10,
             model.parameters(), lr=lr, weight_decay=weight_decay
         )
 
+    print(f"optimizer {optimizer}")
+
     # instantiate a visdom client
     print(f"Visdom environment name {model.name}")
     vis = Visdom(env=model.name)
