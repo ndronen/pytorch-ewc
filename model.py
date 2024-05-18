@@ -17,7 +17,8 @@ class MLP(nn.Module):
                  will_consolidate=False,
                  epochs_per_task=None,
                  opt_name=None,
-                 lr=None
+                 lr=None,
+                 seed=None
                  ):
         # Configurations.
         super().__init__()
@@ -32,6 +33,7 @@ class MLP(nn.Module):
         self.epochs_per_task = epochs_per_task
         self.opt_name = opt_name
         self.lr = lr
+        self.seed = seed
 
         # Layers.
         self.layers = nn.ModuleList([
@@ -57,6 +59,7 @@ class MLP(nn.Module):
             '-epochs_per_task={epochs_per_task}'
             '-opt_name={opt_name}'
             '-lr={lr}'
+            '-seed={seed}'
         ).format(
             lamda=self.lamda,
             input_size=self.input_size,
@@ -68,7 +71,8 @@ class MLP(nn.Module):
             will_consolidate=self.will_consolidate,
             epochs_per_task=self.epochs_per_task,
             opt_name=self.opt_name,
-            lr=self.lr
+            lr=self.lr,
+            seed=self.seed
         )
 
     def forward(self, x):
