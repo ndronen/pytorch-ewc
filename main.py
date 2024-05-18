@@ -66,7 +66,8 @@ if __name__ == '__main__':
         will_consolidate=args.consolidate,
         epochs_per_task=args.epochs_per_task,
         opt_name=args.opt_name,
-        lr=args.lr
+        lr=args.lr,
+        seed=args.random_seed
     )
 
     with open("model-names.txt", "at") as fh:
