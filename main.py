@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from argparse import ArgumentParser
 import numpy as np
+from datetime import datetime
 import torch
 from data import get_dataset, DATASET_CONFIGS
 from train import train
@@ -18,6 +19,9 @@ parser.add_argument('--task-number', type=int, default=8)
 parser.add_argument('--epochs-per-task', type=int, default=3)
 parser.add_argument('--lamda', type=float, default=40)
 parser.add_argument('--lr', type=float, default=1e-1)
+parser.add_argument(
+    '--opt-name', type=str, default="sgd", choices=["sgd", "adam"]
+)
 parser.add_argument('--weight-decay', type=float, default=0)
 parser.add_argument('--batch-size', type=int, default=128)
 parser.add_argument('--test-size', type=int, default=1024)
@@ -59,7 +63,15 @@ if __name__ == '__main__':
         hidden_dropout_prob=args.hidden_dropout_prob,
         input_dropout_prob=args.input_dropout_prob,
         lamda=args.lamda,
+        will_consolidate=args.consolidate,
+        epochs_per_task=args.epochs_per_task,
+        opt_name=args.opt_name,
+        lr=args.lr
     )
+
+    with open("model-names.txt", "at") as fh:
+        now = str(datetime.now()).replace(" ", "-")
+        fh.write(f"{mlp.name} at {now}\n")
 
     # initialize the parameters.
     utils.xavier_initialize(mlp)

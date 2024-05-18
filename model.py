@@ -13,7 +13,12 @@ class MLP(nn.Module):
                  hidden_layer_num=2,
                  hidden_dropout_prob=.5,
                  input_dropout_prob=.2,
-                 lamda=40):
+                 lamda=40,
+                 will_consolidate=False,
+                 epochs_per_task=None,
+                 opt_name=None,
+                 lr=None
+                 ):
         # Configurations.
         super().__init__()
         self.input_size = input_size
@@ -23,6 +28,10 @@ class MLP(nn.Module):
         self.hidden_dropout_prob = hidden_dropout_prob
         self.output_size = output_size
         self.lamda = lamda
+        self.will_consolidate = will_consolidate
+        self.epochs_per_task = epochs_per_task
+        self.opt_name = opt_name
+        self.lr = lr
 
         # Layers.
         self.layers = nn.ModuleList([
@@ -44,6 +53,10 @@ class MLP(nn.Module):
             '-in{input_size}-out{output_size}'
             '-h{hidden_size}x{hidden_layer_num}'
             '-dropout_in{input_dropout_prob}_hidden{hidden_dropout_prob}'
+            '-will_consolidate_{will_consolidate}'
+            '-epochs_per_task={epochs_per_task}'
+            '-opt_name={opt_name}'
+            '-lr={lr}'
         ).format(
             lamda=self.lamda,
             input_size=self.input_size,
@@ -52,6 +65,10 @@ class MLP(nn.Module):
             hidden_layer_num=self.hidden_layer_num,
             input_dropout_prob=self.input_dropout_prob,
             hidden_dropout_prob=self.hidden_dropout_prob,
+            will_consolidate=self.will_consolidate,
+            epochs_per_task=self.epochs_per_task,
+            opt_name=self.opt_name,
+            lr=self.lr
         )
 
     def forward(self, x):
