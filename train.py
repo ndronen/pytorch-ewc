@@ -13,13 +13,22 @@ def train(model, train_datasets, test_datasets, epochs_per_task=10,
           lr=1e-3, weight_decay=1e-5,
           loss_log_interval=30,
           eval_log_interval=50,
-          cuda=False):
+          cuda=False,
+          opt_name="sgd"
+          ):
     # prepare the loss criteriton and the optimizer.
     criteriton = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=lr,
-                          weight_decay=weight_decay)
+    if opt_name == "sgd":
+        optimizer = optim.SGD(
+            model.parameters(), lr=lr, weight_decay=weight_decay
+        )
+    elif opt_name == "adam":
+        optimizer = optim.Adam(
+            model.parameters(), lr=lr, weight_decay=weight_decay
+        )
 
     # instantiate a visdom client
+    print(f"Visdom environment name {model.name}")
     vis = Visdom(env=model.name)
 
     # set the model's mode to training mode.
