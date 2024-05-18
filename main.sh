@@ -16,9 +16,9 @@
 
 cuda_device=-1
 
-for epochs_per_task in 300 100 30 10
+for epochs_per_task in 1 2 3 6 10
 do
-    for lamda in 1 3 5 10 30 50 100
+    for lamda in 1 3 5 10 30 50
     do
         for opt_name in "sgd" "adam"
         do
