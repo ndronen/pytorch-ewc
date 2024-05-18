@@ -20,7 +20,7 @@ do
     do
         for opt_name in "sgd" "adam"
         do
-            python main.py --epochs-per-task $epochs_per_task --lamda $lamda --opt_name $opt_name --consolidate
+            python main.py --epochs-per-task $epochs_per_task --lamda $lamda --opt-name $opt_name --consolidate
         done
     done
 done
