@@ -1,8 +1,8 @@
-# pytorch
-torch==1.0.1.post2
-torchvision==0.2.2.post3
-torchtext==0.1.1
-visdom==0.1.8.8
+pytorch
+torch
+torchvision
+torchtext
+visdom
 
 # data
 scipy
