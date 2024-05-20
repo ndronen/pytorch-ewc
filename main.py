@@ -57,7 +57,7 @@ if __name__ == '__main__':
     # prepare the model.
     mlp = MLP(
         DATASET_CONFIGS['mnist']['size']**2,
-        DATASET_CONFIGS['mnist']['classes'],
+        [DATASET_CONFIGS['mnist']['classes']] * args.task_number,
         hidden_size=args.hidden_size,
         hidden_layer_num=args.hidden_layer_num,
         hidden_dropout_prob=args.hidden_dropout_prob,

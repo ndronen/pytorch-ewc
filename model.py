@@ -1,4 +1,3 @@
-from functools import reduce
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -7,8 +6,26 @@ from torch.autograd import Variable
 import utils
 
 
+def get_names_and_params(network):
+    def _get_names_and_params(module):
+        pnames, params = [], []
+        for param_name, param in module.named_parameters():
+            param_name = param_name.replace(".", "__")
+            pnames.append(param_name)
+            params.append(param)
+        return pnames, params
+
+    lpnames, lparams = _get_names_and_params(network.layers)
+    cpnames, cparams = _get_names_and_params(
+        network.classifiers[network.classifier_num]
+    )
+    param_names = lpnames + cpnames
+    params = lparams + cparams
+    return param_names, params
+
+
 class MLP(nn.Module):
-    def __init__(self, input_size, output_size,
+    def __init__(self, input_size, output_sizes,
                  hidden_size=400,
                  hidden_layer_num=2,
                  hidden_dropout_prob=.5,
@@ -27,7 +44,7 @@ class MLP(nn.Module):
         self.hidden_size = hidden_size
         self.hidden_layer_num = hidden_layer_num
         self.hidden_dropout_prob = hidden_dropout_prob
-        self.output_size = output_size
+        self.output_sizes = output_sizes
         self.lamda = lamda
         self.will_consolidate = will_consolidate
         self.epochs_per_task = epochs_per_task
@@ -43,9 +60,15 @@ class MLP(nn.Module):
             # hidden
             *((nn.Linear(self.hidden_size, self.hidden_size), nn.ReLU(),
                nn.Dropout(self.hidden_dropout_prob)) * self.hidden_layer_num),
-            # output
-            nn.Linear(self.hidden_size, self.output_size)
         ])
+        # output
+        self.classifiers = nn.ModuleList(
+            [
+                nn.Linear(self.hidden_size, output_size)
+                for output_size in output_sizes
+            ]
+        )
+        self.classifier_num = 0
 
     @property
     def name(self):
@@ -63,7 +86,7 @@ class MLP(nn.Module):
         ).format(
             lamda=self.lamda,
             input_size=self.input_size,
-            output_size=self.output_size,
+            output_size=self.output_sizes[0],
             hidden_size=self.hidden_size,
             hidden_layer_num=self.hidden_layer_num,
             input_dropout_prob=self.input_dropout_prob,
@@ -75,8 +98,21 @@ class MLP(nn.Module):
             seed=self.seed
         )
 
+    def set_classifier_num(self, num):
+        if self.classifier_num + 1 == num:
+            # Copy weights from previous classifier to this one, so EWC starts
+            # where it left off.
+            self.classifiers[num].weight.data = \
+                self.classifiers[num - 1].weight.data.clone()
+            if self.classifiers[num].bias is not None:
+                self.classifiers[num].bias.data = \
+                    self.classifiers[num - 1].bias.data.clone()
+        self.classifier_num = num
+
     def forward(self, x):
-        return reduce(lambda x, l: l(x), self.layers, x)
+        for layer in self.layers:
+            x = layer(x)
+        return self.classifiers[self.classifier_num](x)
 
     def estimate_fisher(self, dataset, sample_size, batch_size=32):
         # sample loglikelihoods from the dataset.
@@ -93,28 +129,41 @@ class MLP(nn.Module):
                 break
         # estimate the fisher information of the parameters.
         loglikelihoods = torch.cat(loglikelihoods).unbind()
+
+        # Only select the parameters of the active classifier. There will
+        # likely be an opportunity/need to copy weights and buffers between
+        # successive classifiers soon.
+        param_names, params = get_names_and_params(self)
+
         loglikelihood_grads = zip(*[autograd.grad(
-            l, self.parameters(),
-            retain_graph=(i < len(loglikelihoods))
+            l, params,
+            retain_graph=i < len(loglikelihoods),
+            allow_unused=True
         ) for i, l in enumerate(loglikelihoods, 1)])
-        loglikelihood_grads = [torch.stack(gs) for gs in loglikelihood_grads]
-        fisher_diagonals = [(g ** 2).mean(0) for g in loglikelihood_grads]
-        param_names = [
-            n.replace('.', '__') for n, p in self.named_parameters()
+
+        loglikelihood_grads = [
+            torch.stack(gs) for gs in loglikelihood_grads if gs is not None
         ]
+        fisher_diagonals = [(g ** 2).mean(0) for g in loglikelihood_grads]
         return {n: f.detach() for n, f in zip(param_names, fisher_diagonals)}
 
     def consolidate(self, fisher):
-        for n, p in self.named_parameters():
+        param_names, params = get_names_and_params(self)
+
+        for n, p in zip(param_names, params):
             n = n.replace('.', '__')
-            self.register_buffer('{}_mean'.format(n), p.data.clone())
-            self.register_buffer('{}_fisher'
-                                 .format(n), fisher[n].data.clone())
+            self.register_buffer(
+                '{}_mean'.format(n), p.data.clone()
+            )
+            self.register_buffer(
+                '{}_fisher'.format(n), fisher[n].data.clone()
+            )
 
     def ewc_loss(self, cuda=False):
         try:
             losses = []
-            for n, p in self.named_parameters():
+            param_names, params = get_names_and_params(self)
+            for n, p in zip(param_names, params):
                 # retrieve the consolidated mean and fisher information.
                 n = n.replace('.', '__')
                 mean = getattr(self, '{}_mean'.format(n))

@@ -37,6 +37,7 @@ def train(model, train_datasets, test_datasets, epochs_per_task=10,
     model.train()
 
     for task, train_dataset in enumerate(train_datasets, 1):
+        model.set_classifier_num(task - 1)
         for epoch in range(1, epochs_per_task+1):
             # prepare the data loaders.
             data_loader = utils.get_data_loader(
