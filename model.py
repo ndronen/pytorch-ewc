@@ -6,6 +6,13 @@ from torch.autograd import Variable
 import utils
 
 
+def get_param_name(network, param):
+    for pname, p in network.named_parameters():
+        if id(p.data) == id(param.data):
+            return pname
+    raise ValueError("Param not found")
+
+
 def get_names_and_params(network):
     def _get_names_and_params(module):
         pnames, params = [], []
@@ -99,14 +106,68 @@ class MLP(nn.Module):
         )
 
     def set_classifier_num(self, num):
+        print(f"set_classifier_num: {self.classifier_num} => {num}")
         if self.classifier_num + 1 == num:
             # Copy weights from previous classifier to this one, so EWC starts
             # where it left off.
             self.classifiers[num].weight.data = \
                 self.classifiers[num - 1].weight.data.clone()
+
+            old_param_name = get_param_name(
+                self, self.classifiers[num - 1].weight
+            )
+            old_param_name = old_param_name.replace(".", "__")
+
+            new_param_name = get_param_name(
+                self, self.classifiers[num].weight
+            )
+            new_param_name = new_param_name.replace(".", "__")
+
+            try:
+                mean = getattr(self, "{}_mean".format(old_param_name))
+                self.register_buffer(
+                    "{}_mean".format(new_param_name), mean.clone()
+                )
+            except AttributeError as e:
+                print(f"No attribute {old_param_name}_mean for weight")
+
+            try:
+                fisher = getattr(self, "{}_fisher".format(old_param_name))
+                self.register_buffer(
+                    "{}_fisher".format(new_param_name), fisher.clone()
+                )
+            except AttributeError as e:
+                print(f"No attribute {old_param_name}_fisher for weight")
+
             if self.classifiers[num].bias is not None:
                 self.classifiers[num].bias.data = \
                     self.classifiers[num - 1].bias.data.clone()
+                old_param_name = get_param_name(
+                    self, self.classifiers[num - 1].bias
+                )
+                old_param_name = old_param_name.replace(".", "__")
+
+                new_param_name = get_param_name(
+                    self, self.classifiers[num].bias
+                )
+                new_param_name = new_param_name.replace(".", "__")
+
+                try:
+                    mean = getattr(self, '{}_mean'.format(old_param_name))
+                    self.register_buffer(
+                        "{}_mean".format(new_param_name), mean.clone()
+                    )
+                except AttributeError as e:
+                    print(f"No attribute {old_param_name}_mean for bias")
+
+                try:
+                    fisher = getattr(self, '{}_fisher'.format(old_param_name))
+                    self.register_buffer(
+                        "{}_fisher".format(new_param_name), fisher.clone()
+                    )
+                except AttributeError as e:
+                    print(f"No attribute {old_param_name}_fisher for bias")
+
         self.classifier_num = num
 
     def forward(self, x):

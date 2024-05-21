@@ -3,6 +3,7 @@ from torch import nn
 from torch.autograd import Variable
 from tqdm import tqdm
 from visdom import Visdom
+from model import get_names_and_params
 import utils
 import visual
 
@@ -18,16 +19,6 @@ def train(model, train_datasets, test_datasets, epochs_per_task=10,
           ):
     # prepare the loss criteriton and the optimizer.
     criteriton = nn.CrossEntropyLoss()
-    if opt_name == "sgd":
-        optimizer = optim.SGD(
-            model.parameters(), lr=lr, weight_decay=weight_decay
-        )
-    elif opt_name == "adam":
-        optimizer = optim.Adam(
-            model.parameters(), lr=lr, weight_decay=weight_decay
-        )
-
-    print(f"optimizer {optimizer}")
 
     # instantiate a visdom client
     print(f"Visdom environment name {model.name}")
@@ -38,6 +29,20 @@ def train(model, train_datasets, test_datasets, epochs_per_task=10,
 
     for task, train_dataset in enumerate(train_datasets, 1):
         model.set_classifier_num(task - 1)
+
+        # Get active parameters.
+        param_names, params = get_names_and_params(model)
+        if opt_name == "sgd":
+            optimizer = optim.SGD(
+                params, lr=lr, weight_decay=weight_decay
+            )
+        elif opt_name == "adam":
+            optimizer = optim.Adam(
+                params, lr=lr, weight_decay=weight_decay
+            )
+
+        print(f"optimizer {optimizer}")
+
         for epoch in range(1, epochs_per_task+1):
             # prepare the data loaders.
             data_loader = utils.get_data_loader(
@@ -111,13 +116,25 @@ def train(model, train_datasets, test_datasets, epochs_per_task=10,
                         'task {}'.format(i+1) for i in
                         range(len(train_datasets))
                     ]
-                    precs = [
-                        utils.validate(
-                            model, test_datasets[i], test_size=test_size,
-                            cuda=cuda, verbose=False,
-                        ) if i+1 <= task else 0 for i in
-                        range(len(train_datasets))
-                    ]
+                    orig_classifier_num = model.classifier_num
+                    precs = []
+                    for i in range(len(train_datasets)):
+                        # Don't use set_classifier_num, which has side effects.
+                        if i + 1 <= task:
+                            model.classifier_num = i
+                            precs.append(
+                                utils.validate(
+                                    model,
+                                    test_datasets[i],
+                                    test_size=test_size,
+                                    cuda=cuda,
+                                    verbose=False,
+                                )
+                            )
+                        else:
+                            # Haven't started training this task yet.
+                            precs.append(0)
+                    model.classifier_num = orig_classifier_num
                     title = (
                         'precision (consolidated)' if consolidate else
                         'precision'
